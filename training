@@ -1,0 +1,142 @@
+openapi: 3.0.3
+info:
+  title: Empower Training API – Core Objects
+  version: "1.0.0"
+
+components:
+  ############################
+  # ENUM DEFINITIONS (LOCKED)
+  ############################
+  schemas:
+    SplitType:
+      type: string
+      description: "Program-level identifier for the template‘s overall structure."
+      enum: [full_body, upper_lower, ppl, phul, custom]
+
+    SessionTag:
+      type: string
+      description: "Single tag that drives calendar colour and muscle filter."
+      enum:
+        [full_body, upper, lower, push, pull, legs,
+         power_upper, power_lower, hyp_upper, hyp_lower, custom]
+
+    IntensityType:
+      type: string
+      description: "Determines load/velocity rules inside the progression engine."
+      enum: [strength, hypertrophy, power, speed]
+
+    PhaseType:
+      type: string
+      description: "Periodisation block type; used for deload prompts & analytics."
+      enum: [base, intensity, peak, deload]
+
+    RecommendedLevel:
+      type: string
+      description: "Experience level shown in onboarding filters."
+      enum: [beginner, intermediate, advanced]
+
+    ProgressionModel:
+      type: string
+      description: "Algorithm used to update load from session to session."
+      enum: [linear_load, rpe_auto, fixed_percent]
+
+    LoadPrescriptionMode:
+      type: string
+      description: "How a target load is expressed on each set."
+      enum: [%1RM, RPE, load_kg]
+
+  ##########################################
+  # ENTITY SCHEMAS (REFERENCING THOSE ENUMS)
+  ##########################################
+    Program:
+      type: object
+      required:
+        [programId, name, splitType, durationWeeks,
+         minDaysPerWeek, maxDaysPerWeek, recommendedLevel]
+      properties:
+        programId: { type: string, format: uuid }
+        name:      { type: string }
+        splitType: { $ref: '#/components/schemas/SplitType' }
+        durationWeeks:   { type: integer, minimum: 1 }
+        minDaysPerWeek:  { type: integer, minimum: 1 }
+        maxDaysPerWeek:  { type: integer, minimum: 1 }
+        recommendedLevel: { $ref: '#/components/schemas/RecommendedLevel' }
+        constraints:
+          type: object
+          description: "Equipment, velocity tracking flags, etc."
+        goal: { type: string }
+
+    Phase:
+      type: object
+      required: [phaseId, programId, name, order, durationWeeks, type]
+      properties:
+        phaseId:   { type: string, format: uuid }
+        programId: { type: string, format: uuid }
+        name:      { type: string }
+        order:     { type: integer, minimum: 0 }
+        durationWeeks: { type: integer, minimum: 1 }
+        type:      { $ref: '#/components/schemas/PhaseType' }
+        intensityCurve:
+          type: object
+          additionalProperties:
+            type: number
+          description: "Map of week-index → %1RM (or similar)."
+
+    Session:
+      type: object
+      required:
+        [sessionId, phaseId, dayIndex, name,
+         sessionTag, intensityType, durationEstMin]
+      properties:
+        sessionId: { type: string, format: uuid }
+        phaseId:   { type: string, format: uuid }
+        dayIndex:  { type: integer }
+        name:      { type: string }
+        sessionTag:{ $ref: '#/components/schemas/SessionTag' }
+        intensityType: { $ref: '#/components/schemas/IntensityType' }
+        durationEstMin:{ type: integer }
+        focusMuscles:
+          type: array
+          items: { type: string }
+        notes: { type: string }
+
+    ExerciseInstance:
+      type: object
+      required:
+        [exerciseInstanceId, sessionId, exerciseTemplateId,
+         order, progressionModel, targetSets, targetReps]
+      properties:
+        exerciseInstanceId: { type: string, format: uuid }
+        sessionId:          { type: string, format: uuid }
+        exerciseTemplateId: { type: string, format: uuid }
+        order:              { type: integer }
+        variation:          { type: string }
+        progressionModel:   { $ref: '#/components/schemas/ProgressionModel' }
+        intensityType:      { $ref: '#/components/schemas/IntensityType' }
+        targetSets:         { type: integer }
+        targetReps:         { type: integer }
+        loadPrescription:
+          $ref: '#/components/schemas/LoadPrescription'
+
+    LoadPrescription:
+      type: object
+      required: [mode, value]
+      properties:
+        mode:  { $ref: '#/components/schemas/LoadPrescriptionMode' }
+        value: { type: number }
+
+    Set:
+      type: object
+      required:
+        [setId, exerciseInstanceId, order,
+         prescribedReps, actualReps, prescribedLoad, actualLoad]
+      properties:
+        setId:              { type: string, format: uuid }
+        exerciseInstanceId: { type: string, format: uuid }
+        order:              { type: integer }
+        prescribedReps:     { type: integer }
+        actualReps:         { type: integer }
+        prescribedLoad:     { type: number }
+        actualLoad:         { type: number }
+        rpe:                { type: number }
+        restSec:            { type: integer }
